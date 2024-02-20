@@ -6,11 +6,9 @@ import javax.crypto.NoSuchPaddingException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Key;
-import java.security.NoSuchAlgorithmException;
 import java.util.Scanner;
 
-import static org.example.ZipOperationsService.decryptZipFile;
-import static org.example.ZipOperationsService.encryptZipFile;
+import static org.example.ZipOperationsService.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -19,13 +17,13 @@ public class Main {
         Path newZip;
         Cipher algorithm = Cipher.getInstance("AES");
         KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
-//        keyGenerator.init(128);
+        keyGenerator.init(128);
         Key key = keyGenerator.generateKey();
         System.out.print("Enter path for file to Encrypt:");
         toEncrypt = Paths.get(scanner.next());
         System.out.print("Enter path for file to Decrypt:");
         newZip = Paths.get(scanner.next());
-//        encryptZipFile(algorithm,key,toEncrypt,newZip);
-        decryptZipFile(algorithm,toEncrypt,newZip);
+//        encryptFile(algorithm,key,toEncrypt.toFile(),newZip.toFile());
+        decryptZipFile(algorithm,toEncrypt.toFile(),newZip.toFile());
     }
 }

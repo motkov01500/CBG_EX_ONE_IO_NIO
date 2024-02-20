@@ -2,55 +2,51 @@ package org.example;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.FileInputStream;
+import java.io.File;
 import java.io.FileOutputStream;
-import java.nio.file.Path;
 import java.security.Key;
+import java.util.Enumeration;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 public class ZipOperationsService {
 
-    public static void encryptZipFile(Cipher algorithm, Key key, Path zipToEncrypt, Path zipToSafe) throws Exception {
-        Key key1 = new SecretKeySpec(key.getEncoded(),"AES");
-        algorithm.init(Cipher.ENCRYPT_MODE, key1);
-        try (FileInputStream fileInputStream = new FileInputStream(zipToEncrypt.toString());
-             ZipInputStream zipInputStream = new ZipInputStream(fileInputStream);
-             FileOutputStream fileOutputStream = new FileOutputStream(zipToSafe.toString());
-             ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)){
-            ZipEntry entry;
+    public static void encryptFile(Cipher algorithm,Key key, File zipToDecrypt, File zipToSave) {
+        try (ZipFile zipFile = new ZipFile(zipToDecrypt);
+             ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(zipToSave))) {
+            Enumeration<? extends ZipEntry> entries = zipFile.entries();
             zipOutputStream.putNextEntry(new ZipEntry("AES_key.txt"));
             zipOutputStream.write(key.getEncoded());
-            byte[] buffer = new byte[1024];
-            while ((entry =  zipInputStream.getNextEntry()) != null) {
-                zipOutputStream.putNextEntry(entry);
-                int readBytes;
-                while((readBytes = zipInputStream.read(buffer)) != -1) {
-                    byte[] a = zipInputStream.readNBytes(readBytes);
-                    byte[] encryptedData = algorithm.doFinal(a);
-                    zipOutputStream.write(encryptedData);
-                }
+            ZipEntry keyEntry = null;
+            algorithm.init(Cipher.ENCRYPT_MODE, key);
+            while (entries.hasMoreElements()) {
+                ZipEntry normalEntry = entries.nextElement();
+                byte[] beforeEncryption = zipFile.getInputStream(normalEntry).readAllBytes();
+                byte[] encrypted = algorithm.doFinal(beforeEncryption);
+                zipOutputStream.putNextEntry(normalEntry);
+                zipOutputStream.write(encrypted);
+                zipOutputStream.closeEntry();
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static void decryptZipFile(Cipher algorithm, Path zipToDecrypt, Path zipToSafe) throws Exception {
-        try (FileInputStream fileInputStream = new FileInputStream(zipToDecrypt.toString());
-             ZipInputStream zipInputStream = new ZipInputStream(fileInputStream);
-             FileOutputStream fileOutputStream = new FileOutputStream(zipToSafe.toString());
-             ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)){
-            ZipEntry zipEntry = zipInputStream.getNextEntry();
-            Key key = new SecretKeySpec(zipInputStream.readAllBytes(),"AES");
-            algorithm.init(Cipher.DECRYPT_MODE,key);
-            while ((zipEntry =  zipInputStream.getNextEntry()) != null) {
-                zipOutputStream.putNextEntry(zipEntry);
-                byte[] a = zipInputStream.readAllBytes();
-                byte[] decryptedData = algorithm.doFinal(a);
-                System.out.println(decryptedData.length);
-                zipOutputStream.write(decryptedData);
+    public static void decryptZipFile(Cipher algorithm, File zipToDecrypt, File zipToSave) {
+        try (ZipFile inputZip = new ZipFile(zipToDecrypt);
+             ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(zipToSave))) {
+            Enumeration<? extends ZipEntry> entries = inputZip.entries();
+            ZipEntry keyEntry = entries.nextElement();
+            Key key = new SecretKeySpec(inputZip.getInputStream(keyEntry).readAllBytes(), "AES");
+            algorithm.init(Cipher.DECRYPT_MODE, key);
+            while (entries.hasMoreElements()) {
+                ZipEntry encryptedEntry = entries.nextElement();
+                byte[] encrypted = inputZip.getInputStream(encryptedEntry).readAllBytes();
+                byte[] decrypted = algorithm.doFinal(encrypted);
+                ZipEntry decryptedEntry = new ZipEntry(encryptedEntry.getName());
+                zipOutputStream.putNextEntry(decryptedEntry);
+                zipOutputStream.write(decrypted);
             }
         } catch (Exception e) {
             e.printStackTrace();
